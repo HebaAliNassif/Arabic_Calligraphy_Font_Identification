@@ -16,6 +16,7 @@ import os
 import pickle
 import sys
 import time
+import re
 
 def read_mu_sigma():
     mu = np.loadtxt("mu.txt", dtype=np.float32)
@@ -237,28 +238,30 @@ if len(sys.argv) > 1:
 
   loaded_model = pickle.load(open('finalized_model_sum.sav', 'rb'))
   mu,sigma = read_mu_sigma()
-  ground_truth = open("ground_truth.txt",'r')
-  y_test = np.loadtxt(ground_truth, dtype='str')
   images = []
   i = 0
   with open(time_dir, "w") as time_file, open(results_dir, "w") as result_file:
-          
-    for file in os.listdir(test_dir):
-      image = cv2.imread(test_dir+"/"+file,0)
-      start_time = time.time()
-      image_processed = preprocessing(image)
-      test_features = extractFeatures(image_processed)
-      standardized_test = standardize_test(test_features,mu,sigma)
-      y_pred_sum = loaded_model.predict([standardized_test])
-      end_time = time.time()
-      classification = -1
-      if y_pred_sum == y_test[i]:
-        classification = str(y_pred_sum[0])
-      i += 1
-      time_file.write(str(round(end_time - start_time, 2)))
-      result_file.write(classification)
-      if i < len(os.listdir(test_dir)):
-        time_file.write('\n')
-        result_file.write('\n')
+    convert = lambda text: int(text) if text.isdigit() else text.lower()
+    alphanum_key = lambda key: [ convert(c) for c in re.split('([0-9]+)', key) ] 
+    img_filenames = sorted(os.listdir(test_dir),key= alphanum_key)      
+    for file in img_filenames:
+      try:
+        image = cv2.imread(test_dir+"/"+file,0)
+        start_time = time.time()
+        image_processed = preprocessing(image)
+        test_features = extractFeatures(image_processed)
+        standardized_test = standardize_test(test_features,mu,sigma)
+        y_pred_sum = loaded_model.predict([standardized_test])
+        end_time = time.time()
+        i += 1
+        time_file.write(str(round(end_time - start_time, 2)))
+        result_file.write(str(y_pred_sum[0]))
+        if i < len(os.listdir(test_dir)):
+          time_file.write('\n')
+          result_file.write('\n')
+      except:
+        time_file.write(str(round(0, 2)))
+        result_file.write(str(-1))  
+      
     result_file.close()
     time_file.close()
