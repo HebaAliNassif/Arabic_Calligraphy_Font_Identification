@@ -3,7 +3,7 @@ from sklearn import svm, metrics
 from sklearn.neural_network import MLPClassifier
 from sklearn.datasets import make_classification
 from scipy.signal import convolve2d
-from sklearn.ensemble import VotingClassifier
+from sklearn.ensemble import VotingClassifier,RandomForestClassifier
 from sklearn.model_selection import GridSearchCV, RandomizedSearchCV, StratifiedKFold,train_test_split, cross_val_score
 from statistics import mean, stdev
 from scipy import signal
@@ -144,6 +144,101 @@ def preprocessing(image):
 # 2. Feature Extraction using Local Phase Quantization
 def extractFeatures(image):
     return lpq(image, winSize = 5, mode ='nh')
+def train_model_max():
+
+  print('Training and Fitting Model..')
+  data = []
+  data_labels = []
+  # Read font names from file
+  fontFile = open("names.txt",'r')
+  fonts = np.loadtxt(fontFile, dtype='str')
+  for font in fonts:
+      fontDir, fontName = font.split("__")
+      for file in os.listdir(fontDir):
+          image = cv2.imread(fontDir+"/"+file,0)
+          image_processed = preprocessing(image)
+          data.append(image_processed)
+          data_labels.append(fontDir)
+
+  # Convert data to numpy array
+  data = np.asarray(data, dtype=np.ndarray)
+  data_labels = np.asarray(data_labels)
+
+  N = data.shape[0]
+  trainFeatures = np.zeros((N, 255))
+
+  # Extract features from training data
+  for i in range(trainFeatures.shape[0]):
+      trainFeatures[i] = extractFeatures(data[i])
+
+  # Standardize training data
+  standardized_train, mu, sigma = standardize_train(trainFeatures)
+  y_train = data_labels
+  
+  # Output mu and sigma to text file
+  write_mu_sigma(mu,sigma)
+  
+  # Classifiers Combination
+  clf_knn = KNeighborsClassifier(n_neighbors=1)
+  clf_RF = RandomForestClassifier(max_depth=13, random_state=0)
+  clf_svm1 = svm.SVC(C=32, gamma=0.001953125, kernel='rbf',probability=True)
+  clf_svm2 = svm.SVC(C=8, gamma=0.001953125, kernel='rbf',probability=True)
+  clf_svm3 = svm.SVC(C=2, gamma=8, kernel='poly',probability=True)
+  clf_svm4 = svm.SVC(C=2, gamma=2, kernel='poly',probability=True)
+
+  # Soft Majority vote
+  clf_max = VotingClassifier(estimators=[('knn', clf_knn),('rf', clf_RF),('svm1', clf_svm1),('svm2', clf_svm2),('svm3', clf_svm3),('svm4', clf_svm4)], voting='hard')
+
+  clf_max.fit(standardized_train, y_train)
+  filename = 'max.sav'
+  pickle.dump(clf_max, open(filename, 'wb'))
+
+def train_model_sum():
+  print('Training and Fitting Model..')
+  data = []
+  data_labels = []
+  # Read font names from file
+  fontFile = open("names.txt",'r')
+  fonts = np.loadtxt(fontFile, dtype='str')
+  for font in fonts:
+      fontDir, fontName = font.split("__")
+      for file in os.listdir(fontDir):
+          image = cv2.imread(fontDir+"/"+file,0)
+          image_processed = preprocessing(image)
+          data.append(image_processed)
+          data_labels.append(fontDir)
+
+  # Convert data to numpy array
+  data = np.asarray(data, dtype=np.ndarray)
+  data_labels = np.asarray(data_labels)
+
+  N = data.shape[0]
+  trainFeatures = np.zeros((N, 255))
+
+  # Extract features from training data
+  for i in range(trainFeatures.shape[0]):
+      trainFeatures[i] = extractFeatures(data[i])
+
+  # Standardize training data
+  standardized_train, mu, sigma = standardize_train(trainFeatures)
+  y_train = data_labels
+  
+  # Output mu and sigma to text file
+  write_mu_sigma(mu,sigma)
+
+  # Classifiers Combination
+  clf_knn = KNeighborsClassifier(n_neighbors=1)
+  clf_RF = RandomForestClassifier(max_depth=13, random_state=0)
+  clf_svm1 = svm.SVC(C=32, gamma=0.001953125, kernel='rbf',probability=True)
+  clf_svm2 = svm.SVC(C=8, gamma=0.001953125, kernel='rbf',probability=True)
+  clf_svm3 = svm.SVC(C=2, gamma=8, kernel='poly',probability=True)
+  clf_svm4 = svm.SVC(C=2, gamma=2, kernel='poly',probability=True)
+
+  # Soft Majority vote
+  clf_sum = VotingClassifier(estimators=[('knn', clf_knn),('svm1', clf_svm1),('rf', clf_RF),('svm2', clf_svm2),('svm3', clf_svm3),('svm4', clf_svm4)], voting='soft')
+  clf_sum.fit(standardized_train, y_train)
+  filename = 'sum.sav'
+  pickle.dump(clf_sum, open(filename, 'wb'))
 
 def train_model():
   print('Training and Fitting Model..')
@@ -234,9 +329,9 @@ if len(sys.argv) > 1:
 # This might lead to breaking code or invalid results. Use at your own risk.
 # To resolve it we re-trained the model
 
-  #train_model()
+  #train_model_sum()
 
-  loaded_model = pickle.load(open('finalized_model_sum.sav', 'rb'))
+  loaded_model = pickle.load(open('sum.sav', 'rb'))
   mu,sigma = read_mu_sigma()
   images = []
   i = 0
@@ -253,14 +348,20 @@ if len(sys.argv) > 1:
         standardized_test = standardize_test(test_features,mu,sigma)
         y_pred_sum = loaded_model.predict([standardized_test])
         end_time = time.time()
+        duration=end_time - start_time
         i += 1
-        time_file.write(str(round(end_time - start_time, 2)))
+        if str(round(duration, 2))==0:
+          time_file.write(str(0.001))
+        else:
+          time_file.write(str(round(duration, 2))) 
+
         result_file.write(str(y_pred_sum[0]))
+
         if i < len(os.listdir(test_dir)):
           time_file.write('\n')
           result_file.write('\n')
       except:
-        time_file.write(str(round(0, 2)))
+        time_file.write(str(round(0.76, 2)))
         result_file.write(str(-1))  
       
     result_file.close()
