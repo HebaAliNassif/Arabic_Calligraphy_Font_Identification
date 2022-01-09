@@ -144,55 +144,6 @@ def preprocessing(image):
 # 2. Feature Extraction using Local Phase Quantization
 def extractFeatures(image):
     return lpq(image, winSize = 5, mode ='nh')
-def train_model_max():
-
-  print('Training and Fitting Model..')
-  data = []
-  data_labels = []
-  # Read font names from file
-  fontFile = open("names.txt",'r')
-  fonts = np.loadtxt(fontFile, dtype='str')
-  for font in fonts:
-      fontDir, fontName = font.split("__")
-      for file in os.listdir(fontDir):
-          image = cv2.imread(fontDir+"/"+file,0)
-          image_processed = preprocessing(image)
-          data.append(image_processed)
-          data_labels.append(fontDir)
-
-  # Convert data to numpy array
-  data = np.asarray(data, dtype=np.ndarray)
-  data_labels = np.asarray(data_labels)
-
-  N = data.shape[0]
-  trainFeatures = np.zeros((N, 255))
-
-  # Extract features from training data
-  for i in range(trainFeatures.shape[0]):
-      trainFeatures[i] = extractFeatures(data[i])
-
-  # Standardize training data
-  standardized_train, mu, sigma = standardize_train(trainFeatures)
-  y_train = data_labels
-  
-  # Output mu and sigma to text file
-  write_mu_sigma(mu,sigma)
-  
-  # Classifiers Combination
-  clf_knn = KNeighborsClassifier(n_neighbors=1)
-  clf_RF = RandomForestClassifier(max_depth=13, random_state=0)
-  clf_svm1 = svm.SVC(C=32, gamma=0.001953125, kernel='rbf',probability=True)
-  clf_svm2 = svm.SVC(C=8, gamma=0.001953125, kernel='rbf',probability=True)
-  clf_svm3 = svm.SVC(C=2, gamma=8, kernel='poly',probability=True)
-  clf_svm4 = svm.SVC(C=2, gamma=2, kernel='poly',probability=True)
-
-  # Soft Majority vote
-  clf_max = VotingClassifier(estimators=[('knn', clf_knn),('rf', clf_RF),('svm1', clf_svm1),('svm2', clf_svm2),('svm3', clf_svm3),('svm4', clf_svm4)], voting='hard')
-
-  clf_max.fit(standardized_train, y_train)
-  filename = 'max.sav'
-  pickle.dump(clf_max, open(filename, 'wb'))
-
 def train_model_sum():
   print('Training and Fitting Model..')
   data = []
@@ -227,7 +178,7 @@ def train_model_sum():
   write_mu_sigma(mu,sigma)
 
   # Classifiers Combination
-  clf_knn = KNeighborsClassifier(n_neighbors=1)
+  clf_knn = KNeighborsClassifier(n_neighbors=5)
   clf_RF = RandomForestClassifier(max_depth=13, random_state=0)
   clf_svm1 = svm.SVC(C=32, gamma=0.001953125, kernel='rbf',probability=True)
   clf_svm2 = svm.SVC(C=8, gamma=0.001953125, kernel='rbf',probability=True)
@@ -235,9 +186,9 @@ def train_model_sum():
   clf_svm4 = svm.SVC(C=2, gamma=2, kernel='poly',probability=True)
 
   # Soft Majority vote
-  clf_sum = VotingClassifier(estimators=[('knn', clf_knn),('svm1', clf_svm1),('rf', clf_RF),('svm2', clf_svm2),('svm3', clf_svm3),('svm4', clf_svm4)], voting='soft')
+  clf_sum = VotingClassifier(estimators=[('knn', clf_knn),('svm1', clf_svm1),('rf', clf_RF),('svm2', clf_svm2),('svm3', clf_svm3),('svm4', clf_svm4)], voting='hard')
   clf_sum.fit(standardized_train, y_train)
-  filename = 'sum.sav'
+  filename = 'finalized_model_sum.sav'
   pickle.dump(clf_sum, open(filename, 'wb'))
 
 def train_model():
@@ -330,8 +281,9 @@ if len(sys.argv) > 1:
 # To resolve it we re-trained the model
 
   #train_model_sum()
+  #train_model()
 
-  loaded_model = pickle.load(open('sum.sav', 'rb'))
+  loaded_model = pickle.load(open('finalized_model_sum.sav', 'rb'))
   mu,sigma = read_mu_sigma()
   images = []
   i = 0
