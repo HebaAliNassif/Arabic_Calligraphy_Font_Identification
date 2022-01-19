@@ -15,7 +15,7 @@ https://drive.google.com/file/d/1dC7pwzT_RHL9B42H8-Nzf5Sant-86NV6/view
 ### Testing Phase
 ![image](https://user-images.githubusercontent.com/49316071/150108557-1da0da03-37c8-4796-a63a-340fb20f4fb3.png)
 
-## To run the project, write in cmd
+## How To Run
 	python predict.py PathOfTestsetFolder PathOfOutputFolder
 	python evaluate.py
 
